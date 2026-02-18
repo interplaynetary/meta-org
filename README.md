@@ -48,7 +48,7 @@ Each operation returns a new environment. The previous state is not destroyed �
 
 ### Validators
 
-A validator is an ordinary function: `(expressor name value new-bindings old-env) -> bool`. It sees the proposed change, the full state before and after, and the identity attempting it. It returns true or false.
+A validator is an ordinary function: `(expressor name value old-env new-env) -> bool`. It validates both past (old-env) and post-validation (new-env) states, allowing it to inspect the full timeline before and after the change. It returns true or false.
 
 The default validator accepts everything. You replace it with `enact!`. The metacircular constraint: **a new validator must accept itself** before it takes effect. This means the mechanism for changing the rules is always subject to the current rules — but _what_ those rules are is entirely open.
 
@@ -83,7 +83,7 @@ Every change produces a history entry: a version number, the expressor, the expr
 
 ```scheme
 ;; Install a validator — it must accept itself to take effect
-(evaluate '(enact! (lambda (expressor name value bindings env)
+(evaluate '(enact! (lambda (expressor name value old-env new-env)
                      (number? value)))
           env)
 ```
