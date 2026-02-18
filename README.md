@@ -125,6 +125,8 @@ Rollback does not erase — it replays. Each step is re-evaluated under the iden
 
 Lambdas close over the expressor that created them. A function acts with the identity of its author, not its caller — authorship persists through application.
 
+![alt text](image.png)
+
 ## What this is not
 
 This is not a governance framework. It does not encode voting, consensus, hierarchy, or any particular organizational form. It is the layer _beneath_ those — a substrate in which any such form could be expressed, enacted, and later replaced by something else entirely.

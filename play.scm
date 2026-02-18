@@ -36,11 +36,11 @@
     ((_key . val) val)
     (_ (error "Variable unbound:" name))))
 
-(define (extend-env env names vals)
+(define (extend-env base-bindings names vals)
   (if (null? names)
-      (env-bindings env)
+      base-bindings
       (cons (cons (car names) (car vals))
-            (extend-env env (cdr names) (cdr vals)))))
+            (extend-env base-bindings (cdr names) (cdr vals)))))
 
 (define (make-expressor name public-key)
   (let ((id (gensym (string-append (symbol->string name) "-"))))
@@ -52,8 +52,12 @@
     id))
 
 (define (expressor? x) (hashq-ref *expressors* x))
-(define (expressor-name id) (hashq-ref *expressors* id 'name))
-(define (expressor-key id) (hashq-ref *expressors* id 'public-key))
+(define (expressor-name id)
+  (let ((data (hashq-ref *expressors* id)))
+    (and data (assq-ref data 'name))))
+(define (expressor-key id)
+  (let ((data (hashq-ref *expressors* id)))
+    (and data (assq-ref data 'public-key))))
 
 ;;; Environment now tracks the current expressor
 (define (make-env bindings validator history expressor)
@@ -81,32 +85,33 @@
 
 ;;; Core operations now take explicit expressor
 (define (env-modify env expressor name value expr)
-  (let* ((bindings (env-bindings env))
-         (validator (env-validator env))
+  (let* ((validator (env-validator env))
          (history (env-history env))
          (version (next-version))
-         (new-bindings (cons (cons name value) bindings))
-         (new-entry (make-history-entry version expressor expr 
-                                       (caar history)))
-         (new-history (cons new-entry history)))
-    (if (validator expressor name value new-bindings env)
-        (make-env new-bindings validator new-history expressor)
+         (new-bindings (cons (cons name value) (env-bindings env)))
+         (new-entry (make-history-entry version expressor expr (caar history)))
+         (new-history (cons new-entry history))
+         (post-env (make-env new-bindings validator new-history expressor)))
+    (if (validator expressor name value env post-env)
+        post-env
         (error "Validation failed:" expressor name value))))
 
 (define (env-enact env expressor validator-expr expr)
   (let* ((new-validator (evaluate validator-expr env))
-         (bindings (env-bindings env))
-         (history (env-history env))
          (version (next-version))
-         (new-entry (make-history-entry version expressor expr 
-                                       (caar history)))
-         (new-history (cons new-entry history)))
-    (if (new-validator expressor 'validator new-validator bindings env)
-        (make-env bindings new-validator new-history expressor)
+         (new-entry (make-history-entry version expressor expr
+                                       (caar (env-history env))))
+         (new-history (cons new-entry (env-history env)))
+         (post-env (make-env (env-bindings env)
+                             new-validator
+                             new-history
+                             expressor)))
+    (if (new-validator expressor 'validator new-validator env post-env)
+        post-env
         (error "Validator rejected by itself:" expressor new-validator))))
 
 ;;; Default validator - now takes expressor as first argument
-(define (default-validator expressor name value new-bindings old-env)
+(define (default-validator expressor name value pre-env post-env)
   #t)  ; Trust no one? Actually trust everyone by default
 
 (define (default-history)
@@ -175,8 +180,8 @@
            (current-history (env-history env))
            (current-expressor (env-expressor env)))
        (lambda vals
-         (evaluate body 
-                   (make-env (extend-env env args vals)
+         (evaluate body
+                   (make-env (extend-env (env-bindings env) args vals)
                             current-validator
                             current-history
                             current-expressor)))))
