@@ -26,7 +26,8 @@
             make-initial-env
             with-expressors
             evaluate
-            authenticate?))
+            authenticate?
+            env?))
 
 ;;; Identity management - pure and elegant
 (define *expressors* (make-weak-key-hash-table))
@@ -139,6 +140,14 @@
 
 (define (authenticate? expressor)
   #t) ; Trust everyone for now
+
+;;; Predicate: is this value a play environment (vs a computed result)?
+;;; Envs are always 4-element lists whose second element is a procedure (the validator).
+(define (env? x)
+  (and (list? x)
+       (= (length x) 4)
+       (procedure? (cadr x))
+       (list? (caddr x))))
 
 ;;; Rollback with expressor identity
 (define (env-rollback env target-version expressor)
