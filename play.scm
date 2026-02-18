@@ -83,6 +83,10 @@
   (set! *version-counter* (+ *version-counter* 1))
   *version-counter*)
 
+;;; Dynamic parameter: the expressor of whoever is invoking a lambda right now.
+;;; #f means we're being called directly from Scheme (not through evaluate's application path).
+(define *current-caller* (make-parameter #f))
+
 ;;; Core operations now take explicit expressor
 (define (env-modify env expressor name value expr)
   (let* ((validator (env-validator env))
@@ -174,17 +178,19 @@
          (evaluate consequent env)
          (evaluate alternate env)))
     
-    ;; Lambda captures current expressor
+    ;; Lambda: capture the full closure env for bindings/validator/history,
+    ;; but resolve the acting expressor at call time from *current-caller*.
     (('lambda (args ...) body)
-     (let ((current-validator (env-validator env))
-           (current-history (env-history env))
-           (current-expressor (env-expressor env)))
+     (let ((closure-env env))
        (lambda vals
-         (evaluate body
-                   (make-env (extend-env (env-bindings env) args vals)
-                            current-validator
-                            current-history
-                            current-expressor)))))
+         (let* ((caller-expressor (or (*current-caller*)
+                                      (env-expressor closure-env)))
+                (call-env (make-env
+                            (extend-env (env-bindings closure-env) args vals)
+                            (env-validator closure-env)
+                            (env-history closure-env)
+                            caller-expressor)))
+           (evaluate body call-env)))))
     
     ;; NEW: Create an expressor (identity)
     (('defexpressor name key)
@@ -257,7 +263,10 @@
                     *expressors*)
      env)
     
-    ;; Application
+    ;; Application: inject the caller's expressor so lambdas attribute actions
+    ;; to whoever is actually invoking them, not to their defining author.
     ((proc-expr arg-exprs ...)
-     (apply (evaluate proc-expr env)
-            (map (lambda (arg) (evaluate arg env)) arg-exprs)))))
+     (let ((proc (evaluate proc-expr env))
+           (evaluated-args (map (lambda (arg) (evaluate arg env)) arg-exprs)))
+       (parameterize ((*current-caller* (env-expressor env)))
+         (apply proc evaluated-args))))))

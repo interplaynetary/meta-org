@@ -134,3 +134,19 @@ This is not a governance framework. It does not encode voting, consensus, hierar
 The only invariants are: every action has an identity, every change is remembered, and the rules for changing the rules are themselves subject to the rules.
 
 What emerges from that is up to the expressors.
+
+## How to run the demo
+
+This is a bleeding edge demo that requires a lot of very fresh software. GNU Guile built from the main branch, Guile Hoot 0.5.0 or later, and a recent browser such as Chrome 119+ or Firefox 121+.
+
+You need to get the browser on your own, but for getting a working Guile and Hoot we have provided a Guix manifest file that can be used to setup the environment. Once Guix is installed, just run:
+
+guix shell -m manifest.scm
+
+Once your environment is up, the examples can be built like so:
+make
+
+Then launch a simple web server:
+
+make serve
+Once the web server is up, visit http://localhost:8088 and click on a link to the demo you'd like to check out.

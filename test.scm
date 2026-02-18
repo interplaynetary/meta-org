@@ -182,6 +182,26 @@
   (check "result is a symbol, not a list"
          (symbol? (expressor-name (history-expressor entry))) #t))
 
+;;; ── 7. Lambda carries caller's authority, not author's ──────────────────────
+
+(display "\n── 7. logic vs authority ──\n")
+
+;; Alice defines a lambda that writes to 'target.
+;; Bob calls it. History must record Bob, not Alice.
+(let* ((alice (make-expressor 'alice "key-a"))
+       (bob   (make-expressor 'bob   "key-b"))
+       (env0  (inject-binding (inject-binding base-env 'alice alice) 'bob bob))
+       ;; Alice defines the modifier
+       (env1  (evaluate '(as alice (modify! 'modifier (lambda (x) (modify! 'target x)))) env0))
+       ;; Bob calls it
+       (env2  (evaluate '(as bob (modifier 42)) env1))
+       ;; Most recent history entry is the (modify! 'target 42)
+       (entry (car (env-history env2))))
+  (check "value is stored correctly via cross-identity call"
+         (evaluate 'target env2) 42)
+  (check "lambda called by bob attributes modify! to bob, not alice"
+         (expressor-name (history-expressor entry)) 'bob))
+
 ;;; ── Summary ─────────────────────────────────────────────────────────────────
 
 (display "\n")
